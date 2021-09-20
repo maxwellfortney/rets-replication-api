@@ -1,9 +1,31 @@
 import { Application, Request, Response } from "express";
 import properties from "../modules/properties/schema";
+import photos from "../modules/photos/schema";
 import defaultPerPage from "../config/app";
 
 export class PropertyRoutes {
     public route(app: Application) {
+        app.get(
+            "/api/properties/:listingId/photos",
+            async (req: Request, res: Response) => {
+                const listingId = req.params.listingId;
+
+                const photosRet = await photos.findOne({ listingId });
+
+                if (photosRet) {
+                    res.status(200).json(photosRet);
+                } else {
+                    res.status(404).json({
+                        error: true,
+                        message:
+                            "No property with listingId: " +
+                            listingId +
+                            " or no photos found",
+                    });
+                }
+            }
+        );
+
         app.get(
             "/api/properties/:listingId",
             async (req: Request, res: Response) => {
@@ -16,8 +38,7 @@ export class PropertyRoutes {
                 } else {
                     res.status(404).json({
                         error: true,
-                        message: "No property with listingId: ",
-                        listingId,
+                        message: "No property with listingId: " + listingId,
                     });
                 }
             }

@@ -9,6 +9,7 @@ import { CommonRoutes } from "../routes/commonRoutes";
 import { DigestFetch } from "./digestFetch";
 import PropertyService from "../modules/properties/service";
 import ConfigService from "../modules/config/service";
+import PhotosConfig from "../modules/photos/service";
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ class App {
 
     private propertyService: PropertyService = new PropertyService();
     private configService: ConfigService = new ConfigService();
+    private photosService: PhotosConfig = new PhotosConfig();
 
     private listingsDownloadIncrement: number = 25;
     public defaultPerPage: number = 15;
@@ -58,7 +60,7 @@ class App {
             await this.configService.createConfig();
         }
 
-        console.log("Fetched config ", await this.configService.getConfig());
+        console.log("Fetched config", await this.configService.getConfig());
     }
 
     private async initializeRets() {
@@ -67,7 +69,7 @@ class App {
         });
 
         this.sessionID = await this.retsLogin();
-        console.log("Logged in with session-id ", this.sessionID);
+        console.log("Logged in with session-id", this.sessionID);
 
         if (this.sessionID !== null) {
             if (await this.configService.getInitialSync()) {
@@ -153,12 +155,14 @@ class App {
             SearchType: "Property",
             Class: "ALL",
             // Active, Pending, Active Under Contract, or Coming Soon
-            Query: `(ModificationTimestamp=${
+            Query: `(LisMediaList=|50000967225),(ModificationTimestamp=${
                 modificationTimestamp
                     ? modificationTimestamp
                     : await this.createRetsDateTimeString()
             }+),(StandardStatus=|10000069142,10000069146,85049738628,200003535148)`,
         });
+
+        console.log(query);
 
         const res = await this.client.fetch(
             `http://bright-rets.tst.brightmls.com:6103/cornerstone/search?${query}`,
@@ -188,8 +192,8 @@ class App {
 
     private async performInitalSync() {
         const syncCount = await this.getSyncCount(this.initalSyncDate);
-        console.log("Sync Count: ", syncCount);
-        console.log("Performing initial sync of ", syncCount, " properties");
+        console.log("Sync Count:", syncCount);
+        console.log("Performing initial sync of", syncCount, "properties");
 
         for (
             let i = 0;
@@ -249,6 +253,7 @@ class App {
                                   )
                                 : 0,
                         listingId: property.Listing[0].ListingId[0],
+                        listingKey: property.Listing[0].ListingKey[0],
                         mls: {
                             area: property.LocationArea[0].MLSAreaMajor[0],
                             status: property.Listing[0].StandardStatus[0],
@@ -372,8 +377,29 @@ class App {
                     },
                     () => {
                         console.log(
-                            "Saved property ",
+                            "Saved property",
                             property.LocationAddress[0].FullStreetAddress[0]
+                        );
+                    }
+                );
+
+                const photos = await this.fetchPhotos(
+                    property.Listing[0].ListingKey[0],
+                    property.ListingMedia[0].TotalPhotos[0]
+                );
+
+                this.photosService.updatePhotos(
+                    {
+                        listingKey: property.Listing[0].ListingKey[0],
+                        listingId: property.Listing[0].ListingId[0],
+                        photos,
+                    },
+                    () => {
+                        console.log(
+                            "Saved",
+                            photos.length,
+                            "photos for listingKey",
+                            property.Listing[0].ListingKey[0]
                         );
                     }
                 );
@@ -385,15 +411,16 @@ class App {
         const syncCount = await this.getSyncCount(
             await this.configService.getLastUpdate()
         );
-        console.log("Sync Count: ", syncCount);
+        console.log("Sync Count:", syncCount);
 
         if (syncCount === 0) {
             console.log("No properties modified since last sync");
         } else {
             console.log(
-                "Performing incremental sync of ",
+                "Performing incremental sync of",
                 syncCount,
-                " properties"
+                "properties, since",
+                await this.configService.getLastUpdate()
             );
 
             for (
@@ -460,6 +487,7 @@ class App {
                                       )
                                     : 0,
                             listingId: property.Listing[0].ListingId[0],
+                            listingKey: property.Listing[0].ListingKey[0],
                             mls: {
                                 area: property.LocationArea[0].MLSAreaMajor[0],
                                 status: property.Listing[0].StandardStatus[0],
@@ -604,13 +632,34 @@ class App {
                             );
                         }
                     );
+
+                    const photos = await this.fetchPhotos(
+                        property.Listing[0].ListingKey[0],
+                        property.ListingMedia[0].TotalPhotos[0]
+                    );
+
+                    this.photosService.updatePhotos(
+                        {
+                            listingKey: property.Listing[0].ListingKey[0],
+                            listingId: property.Listing[0].ListingId[0],
+                            photos,
+                        },
+                        () => {
+                            console.log(
+                                "Saved",
+                                photos.length,
+                                "photos for listingKey",
+                                property.Listing[0].ListingKey[0]
+                            );
+                        }
+                    );
                 });
             }
         }
     }
 
     private async fetchProperties(offset, modificationTimestamp) {
-        console.log("OFFSET: ", offset);
+        console.log("OFFSET:", offset);
         const query = queryString.stringify({
             Offset: offset + 1,
             Limit: this.listingsDownloadIncrement,
@@ -618,7 +667,7 @@ class App {
             QueryType: "DMQL2",
             SearchType: "Property",
             Class: "ALL",
-            Query: `(ModificationTimestamp=${modificationTimestamp}+),(StandardStatus=|10000069142,10000069146,85049738628,200003535148)`,
+            Query: `(LisMediaList=|50000967225),(ModificationTimestamp=${modificationTimestamp}+),(StandardStatus=|10000069142,10000069146,85049738628,200003535148)`,
         });
 
         const res = await this.client.fetch(
@@ -642,6 +691,49 @@ class App {
         });
 
         return ret;
+    }
+
+    private async fetchPhotos(listingKey, totalPhotos) {
+        let ret = [];
+        for (let i = 1; i < totalPhotos + 1; i++) {
+            const photo = await this.fetchSinglePhoto(listingKey, i);
+            if (photo !== null) {
+                ret.push(photo);
+            }
+        }
+
+        console.log(
+            "Fetched",
+            totalPhotos,
+            "photos for listing",
+            listingKey,
+            ret
+        );
+        return ret;
+    }
+
+    private async fetchSinglePhoto(listingKey, photoId) {
+        const query = queryString.stringify({
+            Resource: "Property",
+            Type: "Full",
+            ID: listingKey + ":" + photoId,
+            Location: 1, //get the url, not the data
+        });
+
+        const res = await this.client.fetch(
+            `http://bright-rets.tst.brightmls.com:6103/cornerstone/getobject?${query}`,
+            {
+                credentials: "include",
+                headers: {
+                    "User-Agent": "Bright RETS Application/1.0",
+                    "RETS-Version": "RETS/1.8",
+                    Cookie: this.sessionID,
+                    Accept: "image/jpeg",
+                },
+            }
+        );
+
+        return res.headers.get("location");
     }
 
     private async createRetsDateTimeString(date?: string) {

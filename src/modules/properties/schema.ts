@@ -9,6 +9,7 @@ const schema = new mongoose.Schema({
     listDate: String,
     listPrice: Number, //?number
     listingId: String,
+    listingKey: String,
     mls: Object,
     // // mlsId: String,
     modified: String,

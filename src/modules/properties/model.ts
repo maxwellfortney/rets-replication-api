@@ -8,6 +8,7 @@ export interface IProperty {
     listDate: String;
     listPrice: Number;
     listingId: String;
+    listingKey: String;
     mls: Object;
     modified: String;
     office: Object;
