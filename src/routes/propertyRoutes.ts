@@ -124,7 +124,13 @@ export class PropertyRoutes {
             const queryRes = await properties.find(query, null, options).exec();
 
             res.status(200).json(
-                JSON.stringify({ totalCount, listings: queryRes }, null, 4)
+                JSON.stringify(
+                    JSON.parse(
+                        `{ totalCount: ${totalCount}, listings: ${queryRes} }`
+                    ),
+                    null,
+                    4
+                )
             );
         });
     }
