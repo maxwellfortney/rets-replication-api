@@ -8,6 +8,7 @@ import { PropertyRoutes } from "../routes/propertyRoutes";
 import { CommonRoutes } from "../routes/commonRoutes";
 import { DigestFetch } from "./digestFetch";
 import PropertyService from "../modules/properties/service";
+import ConfigService from "../modules/config/service";
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ class App {
     public mongoUrl: string = `mongodb+srv://admin:${process.env.MONGO_PASSWORD}@cluster0.vcasr.mongodb.net/production?retryWrites=true&w=majority`;
 
     private propertyService: PropertyService = new PropertyService();
+    private configService: ConfigService = new ConfigService();
 
     private listingsDownloadIncrement: number = 25;
     public defaultPerPage: number = 15;
@@ -44,13 +46,19 @@ class App {
         this.initializeRets();
     }
 
-    private config(): void {
+    private config() {
         this.app.use(express.json());
         this.app.use(express.urlencoded({ extended: true }));
     }
 
-    private mongoSetup(): void {
-        mongoose.connect(this.mongoUrl);
+    private async mongoSetup() {
+        await mongoose.connect(this.mongoUrl);
+
+        if ((await this.configService.getConfig()) === undefined) {
+            await this.configService.createConfig();
+        }
+
+        console.log("Fetched config ", await this.configService.getConfig());
     }
 
     private async initializeRets() {
@@ -62,21 +70,26 @@ class App {
         console.log("Logged in with session-id ", this.sessionID);
 
         if (this.sessionID !== null) {
-            if (localStorage.getItem("initialFetch")) {
+            if (await this.configService.getInitialSync()) {
                 await this.performIncementalSync();
-                localStorage.setItem(
-                    "lastUpdate",
-                    await this.createRetsDateTimeString()
+
+                await this.configService.updateConfig(
+                    { lastUpdate: await this.createRetsDateTimeString() },
+                    () => {
+                        `Updated config lastUpdate to ${this.createRetsDateTimeString()}`;
+                    }
                 );
             } else {
                 await this.performInitalSync();
-                localStorage.setItem(
-                    "initialFetch",
-                    await this.createRetsDateTimeString()
-                );
-                localStorage.setItem(
-                    "lastUpdate",
-                    await this.createRetsDateTimeString()
+
+                await this.configService.updateConfig(
+                    {
+                        initialSync: await this.createRetsDateTimeString(),
+                        lastUpdate: await this.createRetsDateTimeString(),
+                    },
+                    () => {
+                        `Updated config initialSync and lastUpdate to ${this.createRetsDateTimeString()}`;
+                    }
                 );
             }
 
@@ -86,9 +99,12 @@ class App {
                     this.sessionID = await this.retsLogin();
                 }
                 await this.performIncementalSync();
-                localStorage.setItem(
-                    "lastUpdate",
-                    await this.createRetsDateTimeString()
+
+                await this.configService.updateConfig(
+                    { lastUpdate: await this.createRetsDateTimeString() },
+                    () => {
+                        `Updated config lastUpdate to ${this.createRetsDateTimeString()}`;
+                    }
                 );
             }, this.updateInterval);
         }
@@ -186,7 +202,7 @@ class App {
             );
 
             propertiesArr.forEach(async (property) => {
-                this.propertyService.updateproperty(
+                this.propertyService.updateProperty(
                     {
                         address: {
                             city: property.LocationAddress[0].City[0],
@@ -367,7 +383,7 @@ class App {
 
     private async performIncementalSync() {
         const syncCount = await this.getSyncCount(
-            localStorage.getItem("lastUpdate")
+            await this.configService.getLastUpdate()
         );
         console.log("Sync Count: ", syncCount);
 
@@ -387,11 +403,11 @@ class App {
             ) {
                 const propertiesArr = await this.fetchProperties(
                     i * this.listingsDownloadIncrement,
-                    localStorage.getItem("lastUpdate")
+                    await this.configService.getLastUpdate()
                 );
 
                 propertiesArr.forEach(async (property) => {
-                    this.propertyService.updateproperty(
+                    this.propertyService.updateProperty(
                         {
                             address: {
                                 city: property.LocationAddress[0].City[0],
