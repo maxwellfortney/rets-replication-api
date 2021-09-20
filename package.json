@@ -4,7 +4,9 @@
     "description": "rets replication server and api",
     "main": "dist/server.js",
     "scripts": {
-        "start": "tsc && nodemon -r node-localstorage/register --es-module-specifier-resolution=node dist/server.js",
+        "start": "node -r node-localstorage/register --es-module-specifier-resolution=node dist/server.js",
+        "postinstall": "tsc && nodemon -r node-localstorage/register --es-module-specifier-resolution=node dist/server.js",
+        "watch": "tsc -w",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "author": "",
