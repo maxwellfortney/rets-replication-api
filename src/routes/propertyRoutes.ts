@@ -12,13 +12,19 @@ export class PropertyRoutes {
                 const property = await properties.findOne({ listingId });
 
                 if (property) {
-                    res.status(200).json(property);
+                    res.status(200).json(JSON.stringify(property, null, 4));
                 } else {
-                    res.status(404).json({
-                        error: true,
-                        message: "No property with listingId: ",
-                        listingId,
-                    });
+                    res.status(404).json(
+                        JSON.stringify(
+                            {
+                                error: true,
+                                message: "No property with listingId: ",
+                                listingId,
+                            },
+                            null,
+                            4
+                        )
+                    );
                 }
             }
         );
@@ -117,7 +123,9 @@ export class PropertyRoutes {
 
             const queryRes = await properties.find(query, null, options).exec();
 
-            res.status(200).json({ totalCount, listings: queryRes });
+            res.status(200).json(
+                JSON.stringify({ totalCount, listings: queryRes }, null, 4)
+            );
         });
     }
 
