@@ -12,7 +12,7 @@ export class PropertyRoutes {
                 const property = await properties.findOne({ listingId });
 
                 if (property) {
-                    res.status(200).json(JSON.stringify(property, null, 4));
+                    res.status(200).json(JSON.stringify(property, null, 2));
                 } else {
                     res.status(404).json(
                         JSON.stringify(
@@ -22,7 +22,7 @@ export class PropertyRoutes {
                                 listingId,
                             },
                             null,
-                            4
+                            2
                         )
                     );
                 }
@@ -124,13 +124,7 @@ export class PropertyRoutes {
             const queryRes = await properties.find(query, null, options).exec();
 
             res.status(200).json(
-                JSON.stringify(
-                    JSON.parse(
-                        `{ totalCount: ${totalCount}, listings: ${queryRes} }`
-                    ),
-                    null,
-                    4
-                )
+                JSON.stringify({ totalCount, listings: queryRes }, null, 2)
             );
         });
     }

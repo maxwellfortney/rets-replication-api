@@ -11,7 +11,7 @@ export class CommonRoutes {
                         message: "Check your URL please",
                     },
                     null,
-                    4
+                    2
                 )
             );
         });
