@@ -1,1 +1,1 @@
-web: node dist/server.js
+web: node -r node-localstorage/register --es-module-specifier-resolution=node dist/server.js
