@@ -1,14 +1,15 @@
 import express from "express";
 import mongoose from "mongoose";
 import queryString from "query-string";
+import dotenv from "dotenv";
 import { parseString } from "xml2js";
-
-import environment from "../environment";
 
 import { PropertyRoutes } from "../routes/propertyRoutes";
 import { CommonRoutes } from "../routes/commonRoutes";
 import { DigestFetch } from "./digestFetch";
 import PropertyService from "../modules/properties/service";
+
+dotenv.config();
 
 class App {
     public sessionID: any;
@@ -22,7 +23,7 @@ class App {
     private propertyRoutes: PropertyRoutes = new PropertyRoutes();
     private commonRoutes: CommonRoutes = new CommonRoutes();
 
-    public mongoUrl: string = "mongodb://localhost/" + environment.getDBName();
+    public mongoUrl: string = `mongodb+srv://admin:${process.env.MONGO_PASSWORD}@cluster0.vcasr.mongodb.net/production?retryWrites=true&w=majority`;
 
     private propertyService: PropertyService = new PropertyService();
 
